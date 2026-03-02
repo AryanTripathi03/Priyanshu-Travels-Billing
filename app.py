@@ -3,7 +3,7 @@ from datetime import date
 import os
 from invoice_pdf import generate_outstation_pdf, generate_local_pdf
 
-st.set_page_config(page_title="Aryan Travels Billing", layout="centered")
+st.set_page_config(page_title="Priyanshu Travels Billing", layout="centered")
 
 # CSS Styling
 st.markdown("""
