@@ -8,7 +8,7 @@ GREEN = HexColor("#8FBF3D")
 RED = HexColor("#b30000")
 COMPANY_NAME = "PRIYANSHU TOURS & TRAVELS"
 MOBILE = "+91 9930459965 / +91 9867399591"
-EMAIL = "tripathiramesh.7299@gmail.com"
+EMAIL = "omprakashu994@gmail.com"
 # Single line address to prevent errors
 ADDRESS = "6/B Shop No.2 MMRDA Colony Opposite Durga Nagar Andheri East 400093"
 
