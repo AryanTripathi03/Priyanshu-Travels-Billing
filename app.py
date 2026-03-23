@@ -1,10 +1,9 @@
 import streamlit as st
 from datetime import date
 import os
-from invoice_pdf import generate_outstation_pdf, generate_local_pdf
+from invoice_pdf import generate_outstation_pdf, generate_local_pdf, generate_drop_pdf
 
 st.set_page_config(page_title="Priyanshu Travels Billing", layout="centered")
-
 # CSS Styling
 st.markdown("""
     <style>
@@ -45,7 +44,7 @@ try:
 except:
     st.sidebar.write("PRIYANSHU TOURS & TRAVELS")
     
-invoice_type = st.sidebar.radio("Select Invoice Type", ["Outstation Trip", "Local Trip"])
+invoice_type = st.sidebar.radio("Select Invoice Type", ["Outstation Trip", "Local Trip", "Drop Trip"])
 
 st.title(f"{invoice_type}")
 
@@ -61,7 +60,7 @@ with col_inv:
 col1, col2 = st.columns(2)
 with col1:
     customer = st.text_input("Customer Name")
-    mobile = st.text_input("Customer Mobile")
+    guest_name = st.text_input("Guest Name")
 with col2:
     vehicle = st.text_input("Vehicle No / Model")
 
@@ -80,10 +79,11 @@ if invoice_type == "Outstation Trip":
     
     route = st.text_input("Route Description")
     
-    st.subheader("Extra Charges")
-    e1, e2 = st.columns(2)
+    st.subheader("Extra Charges & Advance")
+    e1, e2, e3 = st.columns(3)
     driver_allow = e1.number_input("Driver Allowance", step=50.0)
     toll = e2.number_input("Toll / Parking", step=50.0)
+    advance = e3.number_input("Advance Received", step=500.0)
 
     # Calculate
     main_amount = kms * rate
@@ -92,15 +92,19 @@ if invoice_type == "Outstation Trip":
     if toll > 0: extras.append(("Toll / Parking", 1, toll, toll))
     
     total = main_amount + sum(x[3] for x in extras)
+    balance = total - advance
+
+    st.markdown(f"### Total: Rs. {total:,.2f} &nbsp;&nbsp;|&nbsp;&nbsp; Balance: Rs. {balance:,.2f}")
 
     if st.button("Generate Outstation Bill"):
         data = {
             "invoice_no": invoice_no,
             "date": date.today().strftime("%d-%m-%Y"),
-            "customer": customer, "vehicle": vehicle,
+            "customer": customer, "guest_name": guest_name, "vehicle": vehicle,
             "kms": kms, "rate": rate, "main_amount": main_amount,
             "route": route, "days": days, "travel_date": travel_date.strftime("%d-%m-%Y"),
-            "extras": extras, "total": total
+            "extras": extras, "total": total,
+            "advance": advance, "balance": balance
         }
         pdf = generate_outstation_pdf(data)
         
@@ -109,14 +113,11 @@ if invoice_type == "Outstation Trip":
         
         st.success(f"Invoice {invoice_no} Generated!")
         st.download_button("Download PDF", pdf, f"Invoice_{invoice_no}.pdf", "application/pdf")
-        
-        # Refresh to show new number (optional, requires rerun)
-        # st.experimental_rerun()
 
 # ===========================
 # 2. LOCAL TRIP
 # ===========================
-else:
+elif invoice_type == "Local Trip":
     # --- DATE RANGE PICKER ---
     d1, d2 = st.columns(2)
     from_d = d1.date_input("From Date", value=date.today())
@@ -143,13 +144,14 @@ else:
     e_min_qty = t2.number_input("Extra Minutes", min_value=0, max_value=59, step=15)
     e_hr_rate = t3.number_input("Rate per Hour", value=200.0)
     
-    # --- EXTRA KMS ---
-    st.caption("Extra KMs")
-    k1, k2 = st.columns(2)
+    # --- EXTRA KMS & TOLL & ADVANCE ---
+    st.caption("Extra KMs, Toll & Advance")
+    k1, k2, k3 = st.columns(3)
     e_km_qty = k1.number_input("Extra KMs", min_value=0)
     e_km_rate = k2.number_input("Rate per KM", value=18.0)
-    
-    toll_local = st.number_input("Toll / Parking (Local)", step=50.0)
+    toll_local = k3.number_input("Toll / Parking (Local)", step=50.0)
+
+    advance = st.number_input("Advance Received", step=500.0)
 
     # --- CALCULATION ---
     total_extra_hours = e_hr_qty + (e_min_qty / 60)
@@ -158,8 +160,9 @@ else:
     
     subtotal = base_amount + extra_hr_amt + extra_km_amt
     total_local = subtotal + toll_local
+    balance = total_local - advance
 
-    st.markdown(f"### Total: Rs. {total_local:,.2f}")
+    st.markdown(f"### Total: Rs. {total_local:,.2f} &nbsp;&nbsp;|&nbsp;&nbsp; Balance: Rs. {balance:,.2f}")
 
     if st.button("Generate Local Bill"):
         data = {
@@ -168,14 +171,15 @@ else:
             "from_date": from_d.strftime("%d-%m-%Y"),
             "to_date": to_d.strftime("%d-%m-%Y"),
             "total_days": total_days,
-            "customer": customer, "mobile": mobile, "vehicle": vehicle,
+            "customer": customer, "guest_name": guest_name, "vehicle": vehicle,
             "rate": base_rate, "main_amount": base_amount,
             
             "extra_hrs_qty": e_hr_qty, "extra_mins_qty": e_min_qty, 
             "extra_hrs_rate": e_hr_rate, "extra_hrs_amt": extra_hr_amt,
             
             "extra_kms_qty": e_km_qty, "extra_kms_rate": e_km_rate, "extra_kms_amt": extra_km_amt,
-            "subtotal": subtotal, "toll": toll_local, "total": total_local
+            "subtotal": subtotal, "toll": toll_local, "total": total_local,
+            "advance": advance, "balance": balance
         }
         pdf = generate_local_pdf(data)
         
@@ -184,3 +188,41 @@ else:
 
         st.success(f"Invoice {invoice_no} Generated!")
         st.download_button("Download Local Bill", pdf, f"Invoice_{invoice_no}.pdf", "application/pdf")
+
+# ===========================
+# 3. DROP TRIP
+# ===========================
+elif invoice_type == "Drop Trip":
+    travel_date = st.date_input("Date of Drop", value=date.today())
+    route = st.text_input("Pickup & Drop Location / Route")
+    
+    d1, d2, d3 = st.columns(3)
+    drop_rate = d1.number_input("Drop Amount", min_value=0.0, step=100.0, value=1500.0)
+    toll_drop = d2.number_input("Toll / Parking", step=50.0)
+    advance = d3.number_input("Advance Received", step=500.0)
+    
+    total_drop = drop_rate + toll_drop
+    balance = total_drop - advance
+    
+    st.markdown(f"### Total: Rs. {total_drop:,.2f} &nbsp;&nbsp;|&nbsp;&nbsp; Balance: Rs. {balance:,.2f}")
+    
+    if st.button("Generate Drop Bill"):
+        data = {
+            "invoice_no": invoice_no,
+            "date": date.today().strftime("%d-%m-%Y"),
+            "travel_date": travel_date.strftime("%d-%m-%Y"),
+            "customer": customer, "guest_name": guest_name, "vehicle": vehicle,
+            "route": route,
+            "rate": drop_rate,
+            "toll": toll_drop,
+            "total": total_drop,
+            "advance": advance,
+            "balance": balance
+        }
+        pdf = generate_drop_pdf(data)
+        
+        # Save the new number
+        increment_invoice_number(invoice_no)
+
+        st.success(f"Invoice {invoice_no} Generated!")
+        st.download_button("Download Drop Bill", pdf, f"Invoice_{invoice_no}.pdf", "application/pdf")
